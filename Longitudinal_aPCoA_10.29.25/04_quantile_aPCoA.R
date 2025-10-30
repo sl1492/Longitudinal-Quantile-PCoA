@@ -1,4 +1,3 @@
-
 quantile_apcoa <- function(PCs, metadata,
                            covariates = "all",
                            lambda = 1.5,
@@ -68,12 +67,15 @@ quantile_apcoa <- function(PCs, metadata,
     
     if (identical(covariates, "all")) {
       
-      # use column-wise "null" values (here: minima) for ALL columns
+      # SL 10.29: use column-wise minima values (the scaled value for 1)
       null_vals <- apply(X_raw, 2, min, na.rm = TRUE)
       X_corrected[,] <- matrix(rep(null_vals, each = nrow(X_raw)), nrow = nrow(X_raw))
+    
     } else {
       
+      # covariates to be corrected
       idx <- grep(paste(covariates, collapse = "|"), colnames(X_raw))
+      
       if (length(idx) > 0) {
         
         # nulls only for selected columns
