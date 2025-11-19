@@ -96,6 +96,7 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
       }
     }
   }
+  
   otu_tmp_unrounded <- otu_tmp
   otu_tmp <- round(otu_tmp)
   
