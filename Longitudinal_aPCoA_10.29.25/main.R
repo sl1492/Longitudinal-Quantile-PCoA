@@ -10,7 +10,7 @@ sim <- simulate_data("mom_270.Rdata", n = 100, m = 4)
 # build Aitchison kernel & PCs
 kpca <- build_kernel_pcs(sim$otu_tmp, sim$example_data)
 
-# LMM
+# Linear mixed model
 m1 <- lmm_long_apcoa(kpca$PCs, 
                      sim$otu_tmp, 
                      sim$batchid, 
@@ -30,7 +30,6 @@ m2 <- quantile_apcoa(PCs = kpca$PCs,
                      cond = sim$cond
                      )
 p_final2 <- plot_apcoa(m2,"Quantile")
-
 
 
 ############ final plot #################

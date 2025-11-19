@@ -1,7 +1,7 @@
 ## Simulation Setup
 simulate_data <- function(rdata_path = "mom_270.Rdata",
                           n = 100, m = 4,
-                          cond_effect = 0.25, batch_effect = 8,
+                          cond_effect = 4, batch_effect = 8,
                           seed_init = 1, seed_select = 7711) {
   
   load(rdata_path)
@@ -15,6 +15,10 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
   cond_taxa1 <- sample(setdiff(1:p, id), 20) # introduce changes in the community profiles shared by all subjects
   cond_taxa2 <- sample(setdiff(1:p, cond_taxa1), 20) # Treatment group, could have both sex and treatment effects
 
+  # SL 11.14: split into decreasing and increasing for balanced effect
+  id_d <- 1:10    # first 10 decrease
+  id_i <- 11:20   # last 10 increase
+  
   set.seed(1)
   selected_samples <- sample.int(nrow(otu_original), n)
 
@@ -34,26 +38,61 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
       sum(otu_original[selected_samples[i],])
   }
   
-  cond_effect <- c(0.25) # introduce changes in the community profiles shared by all subjects
+  cond_effect <- c(4) # introduce changes in the community profiles shared by all subjects
   batch_effect <- c(8) # obscuring sex effect
-  sub_fc <- ifelse(cond == 1, 6 * rlnorm(n, meanlog = log(5), sdlog = 1.2), 1) # SL 10.17
+  treat_effect <- c(3) # treatment effect
+  #sub_fc <- ifelse(cond == 1, 6 * rlnorm(n, meanlog = log(5), sdlog = 1.2), 1) # SL 10.17 treatment effect
 
   for (i in 1:n)
   {
     for (j in 2:m)
     {
+      # SL 11.14
+      prev_row <- (i-1)*m + (j-1)
+      cur_row  <- (i-1)*m + j
+      
       # perturb previous time points' measurement to create current time point measurements
-      otu_tmp[((i-1)*m + j), 3:(p+2)] <- bayesm::rdirichlet(as.numeric(otu_tmp[((i-1)*m + j - 1), 3:(p+2)])) *
-        sum(otu_tmp[((i-1)*m + j - 1), 3:(p+2)])
-      otu_tmp[((i-1)*m + j), (cond_taxa1 + 2)] <- otu_tmp[((i-1)*m + j), (cond_taxa1 + 2)] * cond_effect[1]
+      prev_counts <- as.numeric(otu_tmp[prev_row, 3:(p+2)])
+      otu_tmp[cur_row, 3:(p+2)] <- bayesm::rdirichlet(prev_counts + 0.5) * sum(prev_counts)
+      # otu_tmp[cur_row, (cond_taxa1 + 2)] <- otu_tmp[cur_row, (cond_taxa1 + 2)] * cond_effect[1]
+      
+      # SL 11.19
+      s1_cond <- sum(otu_tmp[cur_row, cond_taxa1[id_d] + 2], na.rm = TRUE)
+      s2_cond <- sum(otu_tmp[cur_row, cond_taxa1[id_i] + 2], na.rm = TRUE)
+
+      if (s1_cond > 0 && s2_cond > 0) {
+        d <- cond_effect[1]
+        otu_tmp[cur_row, cond_taxa1[id_d] + 2] <- otu_tmp[cur_row, cond_taxa1[id_d] + 2] / d
+        change_fold <- 1 + (s1_cond/s2_cond)*((d - 1)/d)
+        otu_tmp[cur_row, cond_taxa1[id_i] + 2] <- otu_tmp[cur_row, cond_taxa1[id_i] + 2] * change_fold
+      }
       
       if (cond[i]) # for treated subjects only
       {
-        otu_tmp[((i-1)*m + j), (cond_taxa2 + 2)] <- otu_tmp[((i-1)*m + j), (cond_taxa2 + 2)] * sub_fc[i]
+        # SL 11.19
+        s1_treat <- sum(otu_tmp[cur_row, cond_taxa2[id_d] + 2], na.rm = TRUE)
+        s2_treat <- sum(otu_tmp[cur_row, cond_taxa2[id_i] + 2], na.rm = TRUE)
+
+        if (s1_treat > 0 && s2_treat > 0) {
+          d <- treat_effect[1] 
+          otu_tmp[cur_row, cond_taxa2[id_d] + 2] <- otu_tmp[cur_row, cond_taxa2[id_d] + 2] / d
+          change_fold <- 1 + (s1_treat/s2_treat)*((d - 1)/d)
+          otu_tmp[cur_row, cond_taxa2[id_i] + 2] <- otu_tmp[cur_row, cond_taxa2[id_i] + 2] * change_fold
+        }
       }
+      
       if (batchid[i]) # for female only
       {
-        otu_tmp[((i-1)*m + j), (id + 2)] = otu_tmp[((i-1)*m + j), (id + 2)] * batch_effect[1]
+        # SL 11.19
+        s1_batch <- sum(otu_tmp[cur_row, id[id_d] + 2], na.rm = TRUE)
+        s2_batch <- sum(otu_tmp[cur_row, id[id_i] + 2], na.rm = TRUE)
+        
+        if (s1_batch > 0 && s2_batch > 0) {
+          d <- batch_effect[1]
+          otu_tmp[cur_row, id[id_d] + 2] <- otu_tmp[cur_row, id[id_d] + 2] / d
+          change_fold <- 1 + (s1_batch/s2_batch)*((d - 1)/d)
+          otu_tmp[cur_row, id[id_i] + 2] <- otu_tmp[cur_row, id[id_i] + 2] * change_fold       
+        }
       }
     }
   }
@@ -74,4 +113,4 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
     batchid = batchid,
     n = n, m = m, p = p
   )
-}
+  }
