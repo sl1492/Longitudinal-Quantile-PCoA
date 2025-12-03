@@ -11,6 +11,8 @@ library(rqpd)
 library(quantreg)
 library(zCompositions)
 library(compositions)
+library(bayesm)
+library(bindata)
 
 ## Helper functions
 
@@ -45,6 +47,19 @@ process_resids <- function(resids,
   return(list(PCs = PCs,
               PC1_perc = eigen$values[1]/sum(eigen$values[mK]),
               PC2_perc = eigen$values[2]/sum(eigen$values[mK])))
+}
+
+# Binary odds ratio 
+bincorr <- function(OR, p1, p2) {    #from odds ratio to binary correlation
+  if (OR==1) p11=p2-p2+p1*p2 else {
+    p11_1=p2-(1/2/(1-OR)*(1-p1+OR*p1+p2-OR*p2-
+                            sqrt((-1+p1-OR*p1-p2+OR*p2)^2-4*(1-OR)*(p2-p1*p2))))
+    p11_2=p2-(1/2/(1-OR)*(1-p1+OR*p1+p2-OR*p2-
+                            sqrt((-1+p1-OR*p1-p2+OR*p2)^2)-4*(1-OR)*(p2-p1*p2)))
+    if (p11_1>0 && p11_1<=p1 && p11_1<p2) p11=p11_1 else p11=p11_2
+  }
+  bincorr=(p11-p1*p2)/sqrt(p1*(1-p1)*p2*(1-p2))
+  return(bincorr)
 }
 
 # The ploting function

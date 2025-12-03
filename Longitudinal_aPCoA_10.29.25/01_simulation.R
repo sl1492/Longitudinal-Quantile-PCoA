@@ -1,48 +1,70 @@
-## Simulation Setup
+### Simulation Setup
 simulate_data <- function(rdata_path = "mom_270.Rdata",
                           n = 100, m = 4,
-                          cond_effect = 4, batch_effect = 8,
-                          seed_init = 1, seed_select = 7711) {
+                          #cond_effect = 4, batch_effect = 8,
+                          OR_cond_batchid = 1.25) {
   
   load(rdata_path)
   otu_original <- t(otu)
   p <- ncol(otu_original)
   n = 100 
   m = 4
-
+  
   # change condition taxa
-  set.seed(1)
-  cond_taxa1 <- sample(setdiff(1:p, id), 20) # introduce changes in the community profiles shared by all subjects
-  cond_taxa2 <- sample(setdiff(1:p, cond_taxa1), 20) # Treatment group, could have both sex and treatment effects
-
-  # SL 11.14: split into decreasing and increasing for balanced effect
-  id_d <- 1:10    # first 10 decrease
-  id_i <- 11:20   # last 10 increase
+  #cond_taxa1 <- sample(setdiff(1:p, id), 20) # introduce changes in the community profiles shared by all subjects
+  #cond_taxa2 <- sample(setdiff(1:p, cond_taxa1), 20) # Treatment group, could have both sex and treatment effects
   
   set.seed(1)
   selected_samples <- sample.int(nrow(otu_original), n)
+  
+  ## SL 12.2: make treatment and batch correlated via OR
+  p_cond  <- 0.5
+  p_batch <- 0.5
 
-  cond <- rbinom(n, 1, 0.5) # treatment/control
-  batchid <- rbinom(n, 1, 0.5) # sex
+  # binary correlation
+  bin_corr <- bincorr(OR_cond_batchid, p_cond, p_batch)
 
-  # perturb independent draws of taxa counts for each sample
+  cond_batch_mat <- rmvbin(n, margprob = c(p_cond, p_batch), 
+    bincorr  = (1 - bin_corr) * diag(2) + bin_corr
+  )
+  
+  #cond <- rbinom(n, 1, 0.5) # treatment/control
+  #batchid <- rbinom(n, 1, 0.5) # sex
+  cond  <- cond_batch_mat[, 1]
+  batchid <- cond_batch_mat[, 2]
+  
+  ## perturb independent draws of taxa counts for each sample
   otu_tmp <- matrix(nrow = n*m, ncol = p+2)
   otu_tmp <- as.data.frame(otu_tmp)
   names(otu_tmp) <- c('patient.id','time',paste0('taxa',1:p))
   otu_tmp$patient.id <- rep(1:n, each = m)
   otu_tmp$time <- 1:m
-
-  # Initialize taxa counts
+  
+  ## Initialize taxa counts
   for (i in 1:n) {
     otu_tmp[(i-1)*m + 1, 3:(p+2)] <- bayesm::rdirichlet(otu_original[selected_samples[i],] + 0.5) *
       sum(otu_original[selected_samples[i],])
   }
-  
-  cond_effect <- c(4) # introduce changes in the community profiles shared by all subjects
-  batch_effect <- c(8) # obscuring sex effect
-  treat_effect <- c(3) # treatment effect
-  #sub_fc <- ifelse(cond == 1, 6 * rlnorm(n, meanlog = log(5), sdlog = 1.2), 1) # SL 10.17 treatment effect
 
+  ## SL 12.1: compute the prevalence
+  otu_mat <- as.matrix(otu_original)
+  prevalence <- colSums(otu_mat > 0) / nrow(otu_mat)
+  prevalence_order <- order(prevalence, decreasing = TRUE)
+  
+  ## SL 12.1: assign id_d and id_i based on prevalence order
+  id_d_treat <- prevalence_order[1:5]    # first 5 decrease
+  id_i_treat <- prevalence_order[6:20]   # last 15 increase
+  
+  # every other taxa decrease or increase
+  batch_order <- prevalence_order[1:20]
+  # batch_order <- id
+  id_d_batch <- batch_order[seq(1, length(batch_order), by = 2)]
+  id_i_batch <- batch_order[seq(2, length(batch_order), by = 2)]
+  
+  batch_effect <- c(2) # obscuring sex effect
+  treat_effect <- c(1.5) # treatment effect
+  
+  ## set up the rest of otu table for t=2,3,4
   for (i in 1:n)
   {
     for (j in 2:m)
@@ -54,50 +76,50 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
       # perturb previous time points' measurement to create current time point measurements
       prev_counts <- as.numeric(otu_tmp[prev_row, 3:(p+2)])
       otu_tmp[cur_row, 3:(p+2)] <- bayesm::rdirichlet(prev_counts + 0.5) * sum(prev_counts)
-      # otu_tmp[cur_row, (cond_taxa1 + 2)] <- otu_tmp[cur_row, (cond_taxa1 + 2)] * cond_effect[1]
-      
-      # SL 11.19
-      s1_cond <- sum(otu_tmp[cur_row, cond_taxa1[id_d] + 2], na.rm = TRUE)
-      s2_cond <- sum(otu_tmp[cur_row, cond_taxa1[id_i] + 2], na.rm = TRUE)
 
-      if (s1_cond > 0 && s2_cond > 0) {
-        d <- cond_effect[1]
-        otu_tmp[cur_row, cond_taxa1[id_d] + 2] <- otu_tmp[cur_row, cond_taxa1[id_d] + 2] / d
-        change_fold <- 1 + (s1_cond/s2_cond)*((d - 1)/d)
-        otu_tmp[cur_row, cond_taxa1[id_i] + 2] <- otu_tmp[cur_row, cond_taxa1[id_i] + 2] * change_fold
-      }
-      
       if (cond[i]) # for treated subjects only
       {
-        # SL 11.19
-        s1_treat <- sum(otu_tmp[cur_row, cond_taxa2[id_d] + 2], na.rm = TRUE)
-        s2_treat <- sum(otu_tmp[cur_row, cond_taxa2[id_i] + 2], na.rm = TRUE)
-
+        
+        # SL 12.1: update to loop thru each id_i and id_d
+        s1_treat <- sum(otu_tmp[cur_row, id_d_treat + 2], na.rm = TRUE)
+        s2_treat <- sum(otu_tmp[cur_row, id_i_treat + 2], na.rm = TRUE)
+        d <- treat_effect[1]
+        
         if (s1_treat > 0 && s2_treat > 0) {
-          d <- treat_effect[1] 
-          otu_tmp[cur_row, cond_taxa2[id_d] + 2] <- otu_tmp[cur_row, cond_taxa2[id_d] + 2] / d
+          for (i1 in id_d_treat) {
+            otu_tmp[cur_row, i1 + 2] <- otu_tmp[cur_row, i1 + 2] / d
+          }
           change_fold <- 1 + (s1_treat/s2_treat)*((d - 1)/d)
-          otu_tmp[cur_row, cond_taxa2[id_i] + 2] <- otu_tmp[cur_row, cond_taxa2[id_i] + 2] * change_fold
+          
+          for (i2 in id_i_treat) {
+            otu_tmp[cur_row, i2 + 2] <- otu_tmp[cur_row, i2 + 2] * change_fold
+          }
         }
       }
       
       if (batchid[i]) # for female only
       {
-        # SL 11.19
-        s1_batch <- sum(otu_tmp[cur_row, id[id_d] + 2], na.rm = TRUE)
-        s2_batch <- sum(otu_tmp[cur_row, id[id_i] + 2], na.rm = TRUE)
+        # SL 12.1: update to loop thru each id_i and id_d
+        s1_batch <- sum(otu_tmp[cur_row, id_d_batch + 2], na.rm = TRUE)
+        s2_batch <- sum(otu_tmp[cur_row, id_i_batch + 2], na.rm = TRUE)
+        d <- batch_effect[1]
         
         if (s1_batch > 0 && s2_batch > 0) {
-          d <- batch_effect[1]
-          otu_tmp[cur_row, id[id_d] + 2] <- otu_tmp[cur_row, id[id_d] + 2] / d
+          for (i1 in id_d_batch) {
+            otu_tmp[cur_row, i1 + 2] <- otu_tmp[cur_row, i1 + 2] / d
+          }
           change_fold <- 1 + (s1_batch/s2_batch)*((d - 1)/d)
-          otu_tmp[cur_row, id[id_i] + 2] <- otu_tmp[cur_row, id[id_i] + 2] * change_fold       
+          
+          for (i2 in id_i_batch) {
+            otu_tmp[cur_row, i2 + 2] <- otu_tmp[cur_row, i2 + 2] * change_fold
+          }
         }
       }
     }
   }
   
   otu_tmp_unrounded <- otu_tmp
+  # round the otu table
   otu_tmp <- round(otu_tmp)
   
   example_data <- list(metadata = cbind(otu_tmp[,1:2],
@@ -114,4 +136,4 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
     batchid = batchid,
     n = n, m = m, p = p
   )
-  }
+}
