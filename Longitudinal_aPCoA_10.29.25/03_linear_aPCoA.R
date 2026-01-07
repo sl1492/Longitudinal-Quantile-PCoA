@@ -9,7 +9,8 @@ lmm_long_apcoa <- function(PCs, otu_tmp, batchid, cond, n, m) {
                       batch = rep(batchid, each = m),
                       id = rep(1:n, each = m))
     ### fit the linear model
-    model1 <- lmer(y ~ batch*time + (1 | id), dat)
+    # using dummy time
+    model1 <- lmer(y ~ batch*factor(time) + (1 | id), dat)
     
     if (isSingular(model1)) next
     var.d <- crossprod(getME(model1,"Lambdat")) # relative random-effects covariance-covariance matrix G

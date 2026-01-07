@@ -23,8 +23,10 @@ p_final1 <- plot_apcoa(m1[[3]], "LMM")
 m2 <- quantile_apcoa(PCs = kpca$PCs, 
                      metadata = kpca$metadata, 
                      covariates = "all", 
-                     lambda = 1.5, q = 99, 
-                     formula = "batch + time",
+                     treat = "treatment",
+                     q = 99, 
+                     subject_id = "subjectid",
+                     formula = "batch + factor(time) + treatment",
                      otu_tmp = sim$otu_tmp, 
                      batchid = sim$batchid, 
                      cond = sim$cond

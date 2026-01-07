@@ -1,9 +1,9 @@
 quantile_apcoa <- function(PCs, metadata,
                            covariates = "all",
-                           lambda = 1.5,
+                           treat = "treatment",
                            q = 99,
                            subject_id = "subjectid",
-                           formula = "batch + time",  
+                           formula = "batch + factor(time) + treatment",
                            otu_tmp,
                            batchid,
                            cond) {
@@ -18,6 +18,13 @@ quantile_apcoa <- function(PCs, metadata,
   for (pc in colnames(PCs)) {
     cat("Processing", pc, "...\n")
     
+    ### SL 1.5: Compute lambda for each PC
+    dat <- df[pc]
+    dat_scale <- scale(dat, center = T, scale = T)
+    # Group by subjectid
+    dat_mean <- aggregate(dat_scale, by = list(subjectid = df[,"subjectid"]), FUN = mean)[,-1]
+    lambda <- 1 / sd(dat_mean, na.rm = TRUE)
+    
     formula_text <- paste0(pc, " ~ ", formula, " | ", subject_id)
     current_formula <- as.formula(formula_text)
     
@@ -25,7 +32,7 @@ quantile_apcoa <- function(PCs, metadata,
     Xmeta <- as.data.frame(Xmeta)
     y <- df[[pc]]
     
-    # SL 10.20: added scale() for covariates
+    # Added scale() for covariates
     X_raw <- scale(model.matrix(~., Xmeta)[,-1])
     df[, colnames(X_raw)] <- X_raw
     
@@ -60,24 +67,29 @@ quantile_apcoa <- function(PCs, metadata,
     colnames(quant_matrix) <- taus
     
     ## Predict quantiles (Remove target covariate)
-    # SL 9.27: Set selected fixed-effect columns to 0 in the design matrix.
-    # - If covariates == "all": zero ALL fixed effects (include time) → intercept-only target.
-    # - Else: zero only columns whose names match `covariates` and their interactions.
+    # Set selected fixed-effect columns to 0 in the design matrix.
+    # If covariates = "all": zero ALL fixed effects except treatment
+    # Else: zero only columns whose names match covariates and their interactions.
     X_corrected <- X_raw
     
     if (identical(covariates, "all")) {
       
-      # SL 10.29: use column-wise minima values (the scaled value for 1)
-      null_vals <- apply(X_raw, 2, min, na.rm = TRUE)
-      X_corrected[,] <- matrix(rep(null_vals, each = nrow(X_raw)), nrow = nrow(X_raw))
-    
+      # SL 1.7: replace all covariates except treatment with their minima
+      treat_idx <- grep(paste0("^", treat), colnames(X_raw), ignore.case = TRUE)
+      non_treat_idx <- setdiff(seq_len(ncol(X_raw)), treat_idx)
+      
+      # column-wise minima for non-treatment covariates
+      if (length(non_treat_idx) > 0) {
+        null_vals <- apply(X_raw[, non_treat_idx, drop = FALSE], 2, min, na.rm = TRUE)
+        X_corrected[, non_treat_idx] <- matrix(rep(null_vals, each = nrow(X_raw)),
+                                               nrow = nrow(X_raw))
+      }
     } else {
       
       # covariates to be corrected
       idx <- grep(paste(covariates, collapse = "|"), colnames(X_raw))
       
       if (length(idx) > 0) {
-        
         # nulls only for selected columns
         null_vals <- apply(X_raw[, idx, drop = FALSE], 2, min, na.rm = TRUE)
         X_corrected[, idx] <- matrix(rep(null_vals, each = nrow(X_raw)), nrow = nrow(X_raw))
@@ -92,7 +104,7 @@ quantile_apcoa <- function(PCs, metadata,
     quant_matrix_corrected <- Q_fixed_corrected + R_subj_corrected
     colnames(quant_matrix_corrected) <- taus
     
-    ### SL 9.29: Quantile matching (invert → transport)
+    ### Quantile matching (invert → transport)
     PC_hat <- vapply(seq_along(y), function(i) {
       
       # Fitted conditional quantile curve for observation i

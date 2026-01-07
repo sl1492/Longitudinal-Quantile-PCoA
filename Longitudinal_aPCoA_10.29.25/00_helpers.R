@@ -62,9 +62,8 @@ bincorr <- function(OR, p1, p2) {    #from odds ratio to binary correlation
   return(bincorr)
 }
 
-# The ploting function
 plot_apcoa <- function(pc_list, title, pc1_name = "PC1", pc2_name = "PC2",
-                     pc1_perc = NULL, pc2_perc = NULL) {
+                       pc1_perc = NULL, pc2_perc = NULL) {
   
   annotations <- data.frame(
     time = 1:4,
@@ -79,8 +78,9 @@ plot_apcoa <- function(pc_list, title, pc1_name = "PC1", pc2_name = "PC2",
     mutate(Sex = ifelse(batch == 1, "Female", "Male"),
            Arm = factor(ifelse(treatment == 0, "Control", "Treatment"),
                         levels = c("Treatment","Control"))) %>%
-    ggplot(aes(PC1, PC2, color = Arm, shape = Sex, group = Sex)) +
+    ggplot(aes(PC1, PC2, color = Arm, shape = Sex)) +
     geom_point(size = 2) +
+    stat_ellipse(aes(group = Sex, linetype = Sex, color = Arm)) +
     facet_wrap(~time, nrow = 2, scales = "free",
                labeller = label_bquote(t[.(time-1)])) +
     theme(strip.text = element_blank()) +
@@ -93,7 +93,7 @@ plot_apcoa <- function(pc_list, title, pc1_name = "PC1", pc2_name = "PC2",
           legend.text = element_text(size = 15),
           legend.title = element_text(size = 18)) +
     ggtitle(title) +
-    stat_ellipse(aes(linetype = Sex)) +
     geom_text(data = annotations, aes(x = x, y = y, label = label),
               hjust = -0.2, vjust = 1.5, parse = TRUE, inherit.aes = FALSE)
 }
+

@@ -7,8 +7,8 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
   load(rdata_path)
   otu_original <- t(otu)
   p <- ncol(otu_original)
-  n = 100 
-  m = 4
+  #n = 100 
+  #m = 4
   
   # change condition taxa
   #cond_taxa1 <- sample(setdiff(1:p, id), 20) # introduce changes in the community profiles shared by all subjects
@@ -23,7 +23,6 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
 
   # binary correlation
   bin_corr <- bincorr(OR_cond_batchid, p_cond, p_batch)
-
   cond_batch_mat <- rmvbin(n, margprob = c(p_cond, p_batch), 
     bincorr  = (1 - bin_corr) * diag(2) + bin_corr
   )
@@ -52,17 +51,16 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
   prevalence_order <- order(prevalence, decreasing = TRUE)
   
   ## SL 12.1: assign id_d and id_i based on prevalence order
-  id_d_treat <- prevalence_order[1:5]    # first 5 decrease
-  id_i_treat <- prevalence_order[6:20]   # last 15 increase
+  id_d_treat <- prevalence_order[1:10]    # first 5 decrease # 10
+  id_i_treat <- prevalence_order[11:20]   # last 15 increase
   
   # every other taxa decrease or increase
-  batch_order <- prevalence_order[1:20]
   # batch_order <- id
-  id_d_batch <- batch_order[seq(1, length(batch_order), by = 2)]
-  id_i_batch <- batch_order[seq(2, length(batch_order), by = 2)]
+  id_d_batch <- prevalence_order[seq(1, length(prevalence_order), by = 2)]
+  id_i_batch <- prevalence_order[seq(2, length(prevalence_order), by = 2)]
   
   batch_effect <- c(2) # obscuring sex effect
-  treat_effect <- c(1.5) # treatment effect
+  treat_effect <- c(1.25) # treatment effect
   
   ## set up the rest of otu table for t=2,3,4
   for (i in 1:n)
@@ -75,7 +73,7 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
       
       # perturb previous time points' measurement to create current time point measurements
       prev_counts <- as.numeric(otu_tmp[prev_row, 3:(p+2)])
-      otu_tmp[cur_row, 3:(p+2)] <- bayesm::rdirichlet(prev_counts + 0.5) * sum(prev_counts)
+      otu_tmp[cur_row, 3:(p+2)] <- bayesm::rdirichlet(prev_counts) * sum(prev_counts)
 
       if (cond[i]) # for treated subjects only
       {
@@ -121,7 +119,7 @@ simulate_data <- function(rdata_path = "mom_270.Rdata",
   otu_tmp_unrounded <- otu_tmp
   # round the otu table
   otu_tmp <- round(otu_tmp)
-  
+
   example_data <- list(metadata = cbind(otu_tmp[,1:2],
                                         batch = rep(batchid, each = m),
                                         treatment = rep(cond, each = m)) %>%
