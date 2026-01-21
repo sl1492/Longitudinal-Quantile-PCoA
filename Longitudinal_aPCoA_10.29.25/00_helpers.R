@@ -46,7 +46,10 @@ process_resids <- function(resids,
   
   return(list(PCs = PCs,
               PC1_perc = eigen$values[1]/sum(eigen$values[mK]),
-              PC2_perc = eigen$values[2]/sum(eigen$values[mK])))
+              PC2_perc = eigen$values[2]/sum(eigen$values[mK]),
+              PC3_perc = eigen$values[3]/sum(eigen$values[mK]),
+              PC4_perc = eigen$values[4]/sum(eigen$values[mK]),
+              PC5_perc = eigen$values[5]/sum(eigen$values[mK])))
 }
 
 # Binary odds ratio 

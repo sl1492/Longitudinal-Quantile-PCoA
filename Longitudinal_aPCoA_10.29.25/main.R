@@ -5,34 +5,48 @@ source("03_linear_aPCoA.R")
 source("04_quantile_aPCoA.R")
 
 # simulate data
-sim <- simulate_data("mom_270.Rdata", n = 100, m = 4)
+sim <- simulate_data_sex(rdata_path = "mom_270.Rdata",
+                     n = 100, m = 4,
+                     batch_effect = c(1.25), # obscuring sex effect
+                     treat_effect = c(1.95), # treatment effect
+                     OR_cond_batchid = 1.25)
 
 # build Aitchison kernel & PCs
 kpca <- build_kernel_pcs(sim$otu_tmp, sim$example_data)
+
+######### Test #############
+PCs_before <- kpca$PCs
+var_explained <- apply(PCs_before, 2, var) / sum(apply(PCs_before, 2, var))
+round(var_explained[1:5] * 100, 2)
+############################
 
 # Linear mixed model
 m1 <- lmm_long_apcoa(kpca$PCs, 
                      sim$otu_tmp, 
                      sim$batchid, 
-                     sim$cond, 
                      sim$n, 
                      sim$m)
-p_final1 <- plot_apcoa(m1[[3]], "LMM")
+resid_PCs <- lapply(m1, function(x) process_resids(x, sim$otu_tmp, sim$cond, sim$batchid))
+p_final1 <- plot_apcoa(resid_PCs[[3]], "LMM")
+# Variance explained
+resid_PCs[[3]][2:6]
+resid_PCs[[3]][[2]]/resid_PCs[[3]][[3]]
 
 # Quantile
 m2 <- quantile_apcoa(PCs = kpca$PCs, 
                      metadata = kpca$metadata, 
-                     covariates = "all", 
-                     treat = "treatment",
-                     q = 99, 
-                     subject_id = "subjectid",
-                     formula = "batch + factor(time) + treatment",
-                     otu_tmp = sim$otu_tmp, 
-                     batchid = sim$batchid, 
-                     cond = sim$cond
+                     to_remove = c("batch","time"),
+                     to_remain = c("treatment"),
+                     q = 99,
+                     taus = seq(0.01, 0.99, length.out = q),
+                     tauw = rep(1/q, q),
+                     subject_id = "subjectid"
                      )
-p_final2 <- plot_apcoa(m2,"Quantile")
-
+final_PCs <- process_resids(m2, sim$otu_tmp, sim$cond, sim$batchid)
+p_final2 <- plot_apcoa(final_PCs,"Quantile")
+# Variance explained
+final_PCs[2:6]
+final_PCs[[2]]/final_PCs[[3]]
 
 ############ final plot #################
 # Plot for extracting the 'Sex' legend

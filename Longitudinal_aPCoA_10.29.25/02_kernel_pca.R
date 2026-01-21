@@ -27,6 +27,9 @@ build_kernel_pcs <- function(otu_tmp, example_data) {
   PCs <- K_eigen$vectors[ ,1:mK90] %*% diag(sqrt(K_eigen$values[1:mK90]))
   colnames(PCs) <- paste0("PC", seq_len(ncol(PCs)))
   
-  list(PCs = PCs, metadata = example_data$metadata, K_eigen = K_eigen, mK90 = mK90)
+  list(PCs = PCs, 
+       metadata = example_data$metadata, 
+       K_eigen = K_eigen, 
+       mK90 = mK90)
 }
 

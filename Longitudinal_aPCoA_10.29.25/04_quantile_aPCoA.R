@@ -1,15 +1,12 @@
 quantile_apcoa <- function(PCs, metadata,
-                           covariates = "all",
-                           treat = "treatment",
+                           to_remove = c("batch","time"),
+                           to_remain = c("treatment"),
                            q = 99,
-                           subject_id = "subjectid",
-                           formula = "batch + factor(time) + treatment",
-                           otu_tmp,
-                           batchid,
-                           cond) {
+                           taus = seq(0.01, 0.99, length.out = q),
+                           tauw = rep(1/q, q),
+                           subject_id = "subjectid"
+                           ) {
   
-  taus <- seq(0.01, 0.99, length.out = q)
-  tauw <- rep(1/q, q)
   df <- cbind(metadata, PCs)
   df[[subject_id]] <- factor(df[[subject_id]])
   
@@ -18,13 +15,15 @@ quantile_apcoa <- function(PCs, metadata,
   for (pc in colnames(PCs)) {
     cat("Processing", pc, "...\n")
     
-    ### SL 1.5: Compute lambda for each PC
+    ## SL 1.5: Compute lambda for each PC
     dat <- df[pc]
     dat_scale <- scale(dat, center = T, scale = T)
     # Group by subjectid
     dat_mean <- aggregate(dat_scale, by = list(subjectid = df[,"subjectid"]), FUN = mean)[,-1]
     lambda <- 1 / sd(dat_mean, na.rm = TRUE)
     
+    ## SL 1.18: Reconstruct formula using re_remain and to_remove
+    formula <- paste(c(to_remove, to_remain), collapse = " + ")
     formula_text <- paste0(pc, " ~ ", formula, " | ", subject_id)
     current_formula <- as.formula(formula_text)
     
@@ -32,7 +31,6 @@ quantile_apcoa <- function(PCs, metadata,
     Xmeta <- as.data.frame(Xmeta)
     y <- df[[pc]]
     
-    # Added scale() for covariates
     X_raw <- scale(model.matrix(~., Xmeta)[,-1])
     df[, colnames(X_raw)] <- X_raw
     
@@ -67,35 +65,30 @@ quantile_apcoa <- function(PCs, metadata,
     colnames(quant_matrix) <- taus
     
     ## Predict quantiles (Remove target covariate)
-    # Set selected fixed-effect columns to 0 in the design matrix.
-    # If covariates = "all": zero ALL fixed effects except treatment
-    # Else: zero only columns whose names match covariates and their interactions.
     X_corrected <- X_raw
     
-    if (identical(covariates, "all")) {
+    # SL 1.18: Replace selected covariates with their minima, keeping treatment (to_remain)
+    if (length(to_remove) > 0) {
+      # find column indices matching the to_remove covariates
+      idx_remove <- grep(paste(to_remove, collapse = "|"), colnames(X_raw), ignore.case = TRUE)
       
-      # SL 1.7: replace all covariates except treatment with their minima
-      treat_idx <- grep(paste0("^", treat), colnames(X_raw), ignore.case = TRUE)
-      non_treat_idx <- setdiff(seq_len(ncol(X_raw)), treat_idx)
-      
-      # column-wise minima for non-treatment covariates
-      if (length(non_treat_idx) > 0) {
-        null_vals <- apply(X_raw[, non_treat_idx, drop = FALSE], 2, min, na.rm = TRUE)
-        X_corrected[, non_treat_idx] <- matrix(rep(null_vals, each = nrow(X_raw)),
-                                               nrow = nrow(X_raw))
-      }
-    } else {
-      
-      # covariates to be corrected
-      idx <- grep(paste(covariates, collapse = "|"), colnames(X_raw))
-      
-      if (length(idx) > 0) {
-        # nulls only for selected columns
-        null_vals <- apply(X_raw[, idx, drop = FALSE], 2, min, na.rm = TRUE)
-        X_corrected[, idx] <- matrix(rep(null_vals, each = nrow(X_raw)), nrow = nrow(X_raw))
+      if (length(idx_remove) > 0) {
+        # replace those columns in X_corrected with their minima        
+        null_vals <- apply(X_raw[, idx_remove, drop = FALSE], 2, min, na.rm = TRUE)
+        X_corrected[, idx_remove] <- matrix(rep(null_vals, each = nrow(X_raw)),
+                                            nrow = nrow(X_raw))
       }
     }
     
+    # Keep to_remain covariates unchanged
+    if (length(to_remain) > 0) {
+      idx_remain <- grep(paste(to_remain, collapse = "|"), colnames(X_raw), ignore.case = TRUE)
+      if (length(idx_remain) > 0) {
+        X_corrected[, idx_remain] <- X_raw[, idx_remain, drop = FALSE]
+      }
+    }
+    
+    # add intercept for fixed effects
     Xi_corrected <- cbind(Intercept = 1, as.matrix(X_corrected))
     
     # Get the predicted full quantile curves after correction
@@ -139,5 +132,5 @@ quantile_apcoa <- function(PCs, metadata,
   resid_PCs <- do.call(cbind, PC_hat_list)
   colnames(resid_PCs) <- colnames(PCs)
   
-  final_PCs <- process_resids(resid_PCs, otu_tmp, cond, batchid)
+  resid_PCs
 }

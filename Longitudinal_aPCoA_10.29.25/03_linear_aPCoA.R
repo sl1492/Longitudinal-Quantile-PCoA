@@ -1,4 +1,7 @@
-lmm_long_apcoa <- function(PCs, otu_tmp, batchid, cond, n, m) {
+lmm_long_apcoa <- function(PCs, 
+                           otu_tmp, 
+                           batchid, 
+                           n, m) {
   
   stand.marg.resids <- marg.resids <- cond.resids <- matrix(NA, nrow = nrow(PCs), ncol = ncol(PCs))
 
@@ -10,7 +13,7 @@ lmm_long_apcoa <- function(PCs, otu_tmp, batchid, cond, n, m) {
                       id = rep(1:n, each = m))
     ### fit the linear model
     # using dummy time
-    model1 <- lmer(y ~ batch*factor(time) + (1 | id), dat)
+    model1 <- lmer(y ~ batch + time + (1 | id), dat)
     
     if (isSingular(model1)) next
     var.d <- crossprod(getME(model1,"Lambdat")) # relative random-effects covariance-covariance matrix G
@@ -27,6 +30,9 @@ lmm_long_apcoa <- function(PCs, otu_tmp, batchid, cond, n, m) {
     cond.resids[, j] <- unname(residuals(model1))
   }
   
-resid_PCs <- lapply(list(marg.resids, cond.resids, stand.marg.resids),
-                    function(x) process_resids(x, otu_tmp, cond, batchid))
+  list(
+    marginal = marg.resids,
+    conditional = cond.resids,
+    standardized = stand.marg.resids
+  )
 }
