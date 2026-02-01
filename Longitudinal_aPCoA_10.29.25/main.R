@@ -23,10 +23,10 @@ round(var_explained[1:5] * 100, 2)
 # Linear mixed model
 m1 <- lmm_long_apcoa(kpca$PCs, 
                      sim$otu_tmp, 
-                     sim$batchid, 
+                     sim$batch, 
                      sim$n, 
                      sim$m)
-resid_PCs <- lapply(m1, function(x) process_resids(x, sim$otu_tmp, sim$cond, sim$batchid))
+resid_PCs <- lapply(m1, function(x) process_resids(x, sim$otu_tmp, sim$cond, sim$batch))
 p_final1 <- plot_apcoa(resid_PCs[[3]], "LMM")
 # Variance explained
 resid_PCs[[3]][2:6]
@@ -37,12 +37,11 @@ m2 <- quantile_apcoa(PCs = kpca$PCs,
                      metadata = kpca$metadata, 
                      to_remove = c("batch","time"),
                      to_remain = c("treatment"),
-                     q = 99,
-                     taus = seq(0.01, 0.99, length.out = q),
-                     tauw = rep(1/q, q),
+                     taus = seq(0.01, 0.99, length.out = 99),
+                     tauw = rep(1/99, 99),
                      subject_id = "subjectid"
                      )
-final_PCs <- process_resids(m2, sim$otu_tmp, sim$cond, sim$batchid)
+final_PCs <- process_resids(m2, sim$otu_tmp, sim$cond, sim$batch)
 p_final2 <- plot_apcoa(final_PCs,"Quantile")
 # Variance explained
 final_PCs[2:6]

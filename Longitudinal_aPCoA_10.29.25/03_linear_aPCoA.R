@@ -1,6 +1,6 @@
 lmm_long_apcoa <- function(PCs, 
                            otu_tmp, 
-                           batchid, 
+                           batch, 
                            n, m) {
   
   stand.marg.resids <- marg.resids <- cond.resids <- matrix(NA, nrow = nrow(PCs), ncol = ncol(PCs))
@@ -9,7 +9,7 @@ lmm_long_apcoa <- function(PCs,
     
     dat <- data.frame(y = PCs[,j],
                       time = otu_tmp$time,
-                      batch = rep(batchid, each = m),
+                      batch = batch,
                       id = rep(1:n, each = m))
     ### fit the linear model
     # using dummy time

@@ -1,9 +1,8 @@
 quantile_apcoa <- function(PCs, metadata,
                            to_remove = c("batch","time"),
                            to_remain = c("treatment"),
-                           q = 99,
-                           taus = seq(0.01, 0.99, length.out = q),
-                           tauw = rep(1/q, q),
+                           taus = seq(0.01, 0.99, length.out = 99),
+                           tauw = rep(1/99, 99),
                            subject_id = "subjectid"
                            ) {
   
@@ -44,6 +43,7 @@ quantile_apcoa <- function(PCs, metadata,
                       taus = taus))
     
     # Extract coefficient
+    q <- length(taus)
     coef_fixed = fit$coef[1:(len_cov*q)]
     coef_mat = matrix(coef_fixed, nrow=len_cov, ncol=q, byrow=F)
     
