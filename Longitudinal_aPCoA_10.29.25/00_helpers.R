@@ -31,16 +31,16 @@ D2K <- function(D) {
 # Function to produce K* (last step, adapted from Amarise's code)
 process_resids <- function(resids, 
                            otu_tmp, 
-                           cond, 
-                           batchid) {
+                           treatment, 
+                           batch) {
   
   eigen <- eigen(tcrossprod(resids), symmetric = TRUE)
   mK <- which(eigen$values > 1e-9) # keep positive values
   PCs <- eigen$vectors[,mK] %*% diag(sqrt(eigen$values[mK]))/1
   PCs <- as.data.frame(cbind(patient.id = otu_tmp$patient.id,
                              time = otu_tmp$time,
-                             treatment = rep(cond, each = max(otu_tmp$time)),
-                             batch = rep(batchid, each = max(otu_tmp$time)),
+                             treatment = treatment,
+                             batch = batch,
                              PCs))
   names(PCs)[5:ncol(PCs)] <- c(paste0('PC',1:(ncol(PCs)-4)))
   
