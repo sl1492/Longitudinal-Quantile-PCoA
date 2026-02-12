@@ -30,7 +30,10 @@ resid_PCs <- lapply(m1, function(x) process_resids(x, sim$otu_tmp,
                                                sim$example_data$metadata$treatment, 
                                                sim$example_data$metadata$batch)
                     )
-p_final1 <- plot_apcoa(resid_PCs[[3]], "LMM")
+
+p_final1 <- plot_apcoa(resid_PCs[[3]], "LMM", 
+                       pc1_perc = resid_PCs[[3]][2]$PC1_perc,
+                       pc2_perc = resid_PCs[[3]][3]$PC2_perc)
 p_final1
 # Variance explained
 # resid_PCs[[3]][2:6]
@@ -48,7 +51,10 @@ m2 <- quantile_apcoa(PCs = kpca$PCs,
 final_PCs <- process_resids(m2, sim$otu_tmp, 
                             sim$example_data$metadata$treatment, 
                             sim$example_data$metadata$batch)
-p_final2 <- plot_apcoa(final_PCs,"Quantile")
+
+p_final2 <- plot_apcoa(final_PCs,"Quantile",
+                       pc1_perc = final_PCs[2]$PC1_perc,
+                       pc2_perc = final_PCs[3]$PC2_perc)
 p_final2
 # Variance explained
 # final_PCs[2:6]
