@@ -11,6 +11,12 @@ sim <- simulate_data_sex(rdata_path = "mom_270.Rdata",
                      treat_effect = c(1.95), # treatment effect
                      OR_cond_batchid = 1.25)
 
+# sim <- simulate_data_sick(rdata_path = "mom_270.Rdata",
+#                          n = 100, m = 4,
+#                          batch_effect = c(1.25), # obscuring sick effect
+#                          treat_effect = c(1.95) # treatment effect
+#                          )
+
 # build Aitchison kernel & PCs
 kpca <- build_kernel_pcs(sim$otu_tmp, sim$example_data)
 
