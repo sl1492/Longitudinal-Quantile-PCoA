@@ -1,11 +1,11 @@
 ## Construct Aitchison Kernel and extract PCs
-build_kernel_pcs <- function(otu_tmp, example_data) {
+build_kernel_pcs <- function(otu_tmp, example_data,
+                             thres_abundance = 0.01/100) {
   
   # Construct D
   rel_tmp <- otu_tmp[,3:ncol(otu_tmp)]/rowSums(otu_tmp[,3:ncol(otu_tmp)]) # may give NA values if denominator is 0
   
   # SL 10.20: Filter out the low abundant genera from the relative abundance data
-  thres_abundance = 0.01 / 100
   mean_abundance <- apply(rel_tmp, 2, function(x) mean(x, na.rm = TRUE))
   rel_tmp <- rel_tmp[, mean_abundance > thres_abundance]
   

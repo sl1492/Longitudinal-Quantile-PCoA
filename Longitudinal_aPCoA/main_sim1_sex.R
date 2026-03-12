@@ -4,18 +4,28 @@ source("02_kernel_pca.R")
 source("03_linear_aPCoA.R")
 source("04_quantile_aPCoA.R")
 
-# simulate data
-sim <- simulate_data_sex(rdata_path = "mom_270.Rdata",
-                     n = 100, m = 4,
-                     batch_effect = c(1.25), # obscuring sex effect
-                     treat_effect = c(1.95), # treatment effect
-                     OR_cond_batchid = 1.25)
+## simulate data
+set.seed(1)
+load("mom_270.Rdata")
 
-# sim <- simulate_data_sick(rdata_path = "mom_270.Rdata",
-#                          n = 100, m = 4,
-#                          batch_effect = c(1.25), # obscuring sick effect
-#                          treat_effect = c(1.95) # treatment effect
-#                          )
+# Compute the prevalence
+otu_mat <- as.matrix(otu)
+prevalence <- colSums(otu_mat > 0) / nrow(otu_mat)
+prevalence_order <- order(prevalence, decreasing = TRUE)
+
+# Assign id_d and id_i based on prevalence order
+id_d_treat <- prevalence_order[1:10]    # first 10 decrease
+id_i_treat <- prevalence_order[11:20]   # last 10 increase
+
+# every other taxa decrease or increase
+id_d_batch <- prevalence_order[seq(1, length(prevalence_order), by = 2)]
+id_i_batch <- prevalence_order[seq(2, length(prevalence_order), by = 2)]
+
+sim <- simulate_data_sex(otu = otu, # from mom data
+                     n = 100, m = 4,
+                     batch_effect = 1.25, # obscuring sex effect
+                     treat_effect = 1.95, # treatment effect
+                     OR_cond_batchid = 1.25)
 
 # build Aitchison kernel & PCs
 kpca <- build_kernel_pcs(sim$otu_tmp, sim$example_data)

@@ -4,8 +4,24 @@ source("02_kernel_pca.R")
 source("03_linear_aPCoA.R")
 source("04_quantile_aPCoA.R")
 
-# simulate data
-sim <- simulate_data_sick(rdata_path = "mom_270.Rdata",
+## simulate data
+set.seed(1)
+load("mom_270.Rdata")
+
+# Compute the prevalence
+otu_mat <- as.matrix(otu)
+prevalence <- colSums(otu_mat > 0) / nrow(otu_mat)
+prevalence_order <- order(prevalence, decreasing = TRUE)
+
+# Assign id_d and id_i based on prevalence order
+id_d_treat <- prevalence_order[1:10]    # first 10 decrease
+id_i_treat <- prevalence_order[11:20]   # last 10 increase
+
+# every other taxa decrease or increase
+id_d_batch <- prevalence_order[seq(1, length(prevalence_order), by = 2)]
+id_i_batch <- prevalence_order[seq(2, length(prevalence_order), by = 2)]
+
+sim <- simulate_data_sick(otu,
                          n = 100, m = 4,
                          batch_effect = c(1.25), # obscuring sick effect
                          treat_effect = c(1.95) # treatment effect
@@ -55,7 +71,7 @@ p_final2
 # final_PCs[[2]]/final_PCs[[3]]
 
 ############ final plot #################
-# Plot for extracting the 'Sex' legend
+# Plot for extracting the 'Sick' legend
 p_final1_sick <- p_final1 +
   scale_color_manual(values = c("Treatment" = "#F8766D", "Control" = "#00BFC4")) +  # Correct color values
   guides(color = "none") +  # Hide the color legend

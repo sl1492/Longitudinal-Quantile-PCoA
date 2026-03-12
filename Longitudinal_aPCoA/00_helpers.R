@@ -1,11 +1,11 @@
 library(bindata)
-library(GENESIS)
+#library(GENESIS)
 library(dplyr)
 library(ggplot2)
 library(Matrix)
 library(nlme)
 library(lme4)
-library(Tjazi)
+#library(Tjazi)
 library(cowplot)
 library(rqpd)
 library(quantreg)
@@ -46,14 +46,11 @@ process_resids <- function(resids,
   
   return(list(PCs = PCs,
               PC1_perc = eigen$values[1]/sum(eigen$values[mK]),
-              PC2_perc = eigen$values[2]/sum(eigen$values[mK]),
-              PC3_perc = eigen$values[3]/sum(eigen$values[mK]),
-              PC4_perc = eigen$values[4]/sum(eigen$values[mK]),
-              PC5_perc = eigen$values[5]/sum(eigen$values[mK])))
+              PC2_perc = eigen$values[2]/sum(eigen$values[mK])))
 }
 
-# Binary odds ratio 
-bincorr <- function(OR, p1, p2) {    #from odds ratio to binary correlation
+# Input OR then return correlation for two binary variables
+bincorr <- function(OR, p1, p2) {    # 
   if (OR==1) p11=p2-p2+p1*p2 else {
     p11_1=p2-(1/2/(1-OR)*(1-p1+OR*p1+p2-OR*p2-
                             sqrt((-1+p1-OR*p1-p2+OR*p2)^2-4*(1-OR)*(p2-p1*p2))))
@@ -65,6 +62,7 @@ bincorr <- function(OR, p1, p2) {    #from odds ratio to binary correlation
   return(bincorr)
 }
 
+# Plot function
 plot_apcoa <- function(pc_list, title, pc1_name = "PC1", pc2_name = "PC2",
                        pc1_perc = NULL, pc2_perc = NULL) {
   
@@ -99,4 +97,3 @@ plot_apcoa <- function(pc_list, title, pc1_name = "PC1", pc2_name = "PC2",
     geom_text(data = annotations, aes(x = x, y = y, label = label),
               hjust = -0.2, vjust = 1.5, parse = TRUE, inherit.aes = FALSE)
 }
-

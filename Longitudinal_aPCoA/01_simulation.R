@@ -1,30 +1,25 @@
 ### Simulation Setup
-simulate_data_sex <- function(rdata_path = "mom_270.Rdata",
-                          n = 100, # subjects
-                          m = 4, # time point
-                          batch_effect = c(1.25), # obscuring sex effect
-                          treat_effect = c(1.95), # treatment effect
-                          OR_cond_batchid = 1.25) {
+simulate_data_sex <- function(otu,
+                              n = 100, # subjects
+                              m = 4, # time point
+                              batch_effect = 1.25, # obscuring sex effect
+                              treat_effect = 1.95, # treatment effect
+                              p_cond = 0.5,
+                              p_batch = 0.5,
+                              OR_cond_batchid = 1.25) {
   
-  load(rdata_path)
   otu_original <- t(otu)
   p <- ncol(otu_original)
-
-  set.seed(1)
+  
   selected_samples <- sample.int(nrow(otu_original), n)
   
   ## SL 12.2: make treatment and batch correlated via OR
-  p_cond  <- 0.5
-  p_batch <- 0.5
-
   # binary correlation
   bin_corr <- bincorr(OR_cond_batchid, p_cond, p_batch)
   cond_batch_mat <- rmvbin(n, margprob = c(p_cond, p_batch), 
-    bincorr  = (1 - bin_corr) * diag(2) + bin_corr
+                           bincorr  = (1 - bin_corr) * diag(2) + bin_corr
   )
   
-  #cond <- rbinom(n, 1, 0.5) # treatment/control
-  #batchid <- rbinom(n, 1, 0.5) # sex
   cond  <- cond_batch_mat[, 1]
   batchid <- cond_batch_mat[, 2]
   
@@ -40,7 +35,7 @@ simulate_data_sex <- function(rdata_path = "mom_270.Rdata",
     otu_tmp[(i-1)*m + 1, 3:(p+2)] <- bayesm::rdirichlet(otu_original[selected_samples[i],] + 0.5) *
       sum(otu_original[selected_samples[i],])
   }
-
+  
   ## SL 12.1: compute the prevalence
   otu_mat <- as.matrix(otu_original)
   prevalence <- colSums(otu_mat > 0) / nrow(otu_mat)
@@ -67,14 +62,14 @@ simulate_data_sex <- function(rdata_path = "mom_270.Rdata",
       # perturb previous time points' measurement to create current time point measurements
       prev_counts <- as.numeric(otu_tmp[prev_row, 3:(p+2)])
       otu_tmp[cur_row, 3:(p+2)] <- bayesm::rdirichlet(prev_counts) * sum(prev_counts)
-
+      
       if (cond[i]) # for treated subjects only
       {
         
         # SL 12.1: update to loop thru each id_i and id_d
         s1_treat <- sum(otu_tmp[cur_row, id_d_treat + 2], na.rm = TRUE)
         s2_treat <- sum(otu_tmp[cur_row, id_i_treat + 2], na.rm = TRUE)
-        d <- treat_effect[1]
+        d <- treat_effect
         
         if (s1_treat > 0 && s2_treat > 0) {
           for (i1 in id_d_treat) {
@@ -112,16 +107,16 @@ simulate_data_sex <- function(rdata_path = "mom_270.Rdata",
   otu_tmp_unrounded <- otu_tmp
   # round the otu table
   otu_tmp <- round(otu_tmp)
-
+  
   example_data <- list(metadata = cbind(otu_tmp[,1:2],
                                         batch = rep(batchid, each = m),
                                         treatment = rep(cond, each = m)) %>%
                          rename(subjectid = `patient.id`) %>%
                          # SL 1.18: 
                          mutate(time = factor(time, 
-                                  levels = sort(unique(time)),
-                                  labels = paste0("t", sort(unique(time)))
-                                              )),
+                                              levels = sort(unique(time)),
+                                              labels = paste0("t", sort(unique(time)))
+                         )),
                        otu_counts = otu_tmp[,3:ncol(otu_tmp)])
   
   list(
@@ -131,18 +126,16 @@ simulate_data_sex <- function(rdata_path = "mom_270.Rdata",
   )
 }
 
-simulate_data_sick <- function(rdata_path = "mom_270.Rdata",
+simulate_data_sick <- function(otu,
                                n = 100, # subjects
                                m = 4, # time point
-                               batch_effect = c(1.25), # obscuring sickness effect
-                               treat_effect = c(1.95) # treatment effect
-                               ) {
+                               batch_effect = 1.25, # obscuring sickness effect
+                               treat_effect = 1.95 # treatment effect
+) {
   
-  load(rdata_path)
   otu_original <- t(otu)
   p <- ncol(otu_original)
   
-  set.seed(1)
   selected_samples <- sample.int(nrow(otu_original), n)
   
   # Enumerate the 16 sickness trajectories
@@ -189,7 +182,7 @@ simulate_data_sick <- function(rdata_path = "mom_270.Rdata",
     # sickness initialization
     if (batchid[1,i])
     {
-      otu_tmp[(i-1)*m+1, id + 2] <- otu_tmp[(i-1)*m+1, id + 2] * batch_effect[1]
+      otu_tmp[(i-1)*m+1, id + 2] <- otu_tmp[(i-1)*m+1, id + 2] * batch_effect
     }
   }
   
@@ -225,7 +218,7 @@ simulate_data_sick <- function(rdata_path = "mom_270.Rdata",
         # SL 12.1: update to loop thru each id_i and id_d
         s1_treat <- sum(otu_tmp[cur_row, id_d_treat + 2], na.rm = TRUE)
         s2_treat <- sum(otu_tmp[cur_row, id_i_treat + 2], na.rm = TRUE)
-        d <- treat_effect[1]
+        d <- treat_effect
         
         if (s1_treat > 0 && s2_treat > 0) {
           for (i1 in id_d_treat) {
@@ -244,7 +237,7 @@ simulate_data_sick <- function(rdata_path = "mom_270.Rdata",
         # SL 12.1: update to loop thru each id_i and id_d
         s1_batch <- sum(otu_tmp[cur_row, id_d_batch + 2], na.rm = TRUE)
         s2_batch <- sum(otu_tmp[cur_row, id_i_batch + 2], na.rm = TRUE)
-        d <- batch_effect[1]
+        d <- batch_effect
         
         if (s1_batch > 0 && s2_batch > 0) {
           for (i1 in id_d_batch) {
